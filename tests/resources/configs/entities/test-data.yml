@@ -14,16 +14,23 @@
 
 entities:
   TEST_TABLE:
-    source_database: BIGQUERY
-    table_name: contact_details
-    dataset_name: dq_test
-    project_name: <your_gcp_project_id>
+    source_database: DATAPLEX
+    table_name: asset_bucket
+    lake_name: amandeep-dev-lake
+    zone_name: raw
+    resource_type: STORAGE_BUCKET
+    dataset_name: amandeep_dev_lake_raw
+    project_name: dataplex-clouddq
     environment_override:
       TEST:
         environment: test
         override:
-          dataset_name: <your_bigquery_dataset_id>
-          project_name: <your_gcp_project_id_2>
+          table_name: <table_name_2>
+          lake_name: <lake_name_2>
+          zone_name: <zone_name_2>
+          resource_type: <resource_type_2>
+          dataset_name: <your_dataset_id_2>
+          project_name: <your_project_id_2>
     columns:
       ROW_ID:
         name: row_id

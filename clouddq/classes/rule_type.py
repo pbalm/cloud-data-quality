@@ -26,6 +26,9 @@ from clouddq.utils import assert_not_none_or_empty
 FORBIDDEN_SQL = re.compile(r"[;\-#|\\/]")
 NOT_NULL_SQL = Template("$column IS NOT NULL")
 REGEX_SQL = Template("REGEXP_CONTAINS( CAST( $column  AS STRING), '$pattern' )")
+REGEX_SPARK_SQL = Template(
+    "LENGTH(REGEXP_EXTRACT(TRIM(CAST( $column  AS STRING)), '$pattern', 0))>0"
+)
 NOT_BLANK_SQL = Template("TRIM($column) != ''")
 
 
@@ -80,7 +83,7 @@ def to_sql_custom_sql_statement(params: dict) -> Template:
     return Template(custom_sql_statement)
 
 
-def to_sql_regex(params: dict) -> Template:
+def to_sql_regex(params: dict, source_database: str) -> Template:
     pattern = params.get("pattern", "")
     assert_not_none_or_empty(
         pattern,
@@ -88,6 +91,14 @@ def to_sql_regex(params: dict) -> Template:
         f"'pattern' in 'params'.\n"
         f"Current value: {pattern}",
     )
+
+    assert_not_none_or_empty(
+        source_database,
+        f"RuleType: {RuleType.REGEX} must define "
+        f"'source_database'.\n"
+        f"Current value: {source_database}",
+    )
+
     try:
         re.compile(pattern)
     except re.error:
@@ -100,7 +111,20 @@ def to_sql_regex(params: dict) -> Template:
     # escape dollar signs in regex
     # to avoid conflict with python string Template
     pattern = pattern.replace("$", "$$")
-    return Template(REGEX_SQL.safe_substitute(pattern=pattern))
+
+    if source_database == "BIGQUERY":
+        return Template(REGEX_SQL.safe_substitute(pattern=pattern))
+
+    elif source_database == "DATAPLEX":
+        return Template(REGEX_SPARK_SQL.safe_substitute(pattern=pattern))
+
+
+def not_null_sql(source_database: str) -> Template:
+
+    if source_database == "DATAPLEX":
+        return NOT_BLANK_SQL
+    else:
+        return NOT_NULL_SQL
 
 
 @unique
@@ -113,15 +137,15 @@ class RuleType(str, Enum):
     REGEX = "REGEX"
     NOT_BLANK = "NOT_BLANK"
 
-    def to_sql(self: RuleType, params: dict | None) -> Template:
+    def to_sql(self: RuleType, params: dict | None, source_database: str) -> Template:
         if self == RuleType.CUSTOM_SQL_EXPR:
             return to_sql_custom_sql_expr(params)
         elif self == RuleType.CUSTOM_SQL_STATEMENT:
             return to_sql_custom_sql_statement(params)
         elif self == RuleType.NOT_NULL:
-            return NOT_NULL_SQL
+            return not_null_sql(source_database)
         elif self == RuleType.REGEX:
-            return to_sql_regex(params)
+            return to_sql_regex(params, source_database)
         elif self == RuleType.NOT_BLANK:
             return NOT_BLANK_SQL
         else:

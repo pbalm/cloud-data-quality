@@ -16,9 +16,9 @@ WITH
 data AS (
     SELECT
       *,
-      COUNT(1) OVER () as num_rows_validated,
+      COUNT(1) OVER () as num_rows_validated
     FROM
-      `<your_gcp_project_id>.dq_test.contact_details` d
+      dataplex-clouddq.dataplex_clouddq.contact_details  d
     WHERE
       contact_type = 'email'
 ),
@@ -28,7 +28,7 @@ SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T2_DQ_1_EMAIL' AS rule_binding_id,
     'NOT_NULL_SIMPLE' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
     value AS column_value,
     num_rows_validated AS num_rows_validated,
@@ -39,7 +39,7 @@ SELECT
     ELSE
       FALSE
     END AS simple_rule_row_is_valid,
-    NULL AS complex_rule_validation_errors_count,
+    NULL AS complex_rule_validation_errors_count
   FROM
     data
 
@@ -48,7 +48,7 @@ SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T2_DQ_1_EMAIL' AS rule_binding_id,
     'REGEX_VALID_EMAIL' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
     value AS column_value,
     num_rows_validated AS num_rows_validated,
@@ -60,7 +60,7 @@ SELECT
     ELSE
       FALSE
     END AS simple_rule_row_is_valid,
-    NULL AS complex_rule_validation_errors_count,
+    NULL AS complex_rule_validation_errors_count
   FROM
     data
 
@@ -69,7 +69,7 @@ SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T2_DQ_1_EMAIL' AS rule_binding_id,
     'CUSTOM_SQL_LENGTH_LE_30' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
     value AS column_value,
     num_rows_validated AS num_rows_validated,
@@ -81,7 +81,7 @@ SELECT
     ELSE
       FALSE
     END AS simple_rule_row_is_valid,
-    NULL AS complex_rule_validation_errors_count,
+    NULL AS complex_rule_validation_errors_count
   FROM
     data
     UNION ALL
@@ -89,19 +89,17 @@ SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T2_DQ_1_EMAIL' AS rule_binding_id,
     'NOT_BLANK' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
     value AS column_value,
     num_rows_validated AS num_rows_validated,
     CASE
-
-      WHEN value IS NULL THEN NULL
-      WHEN TRIM(value) != '' THEN TRUE
-
+    WHEN value IS NULL THEN NULL
+    WHEN TRIM(value) != '' THEN TRUE
     ELSE
     FALSE
     END AS simple_rule_row_is_valid,
-    NULL AS complex_rule_validation_errors_count,
+    NULL AS complex_rule_validation_errors_count
     FROM
     data
 ),
@@ -119,7 +117,7 @@ all_validation_results AS (
     '{"brand": "one"}' AS metadata_json_string,
     '' AS configs_hashsum,
     CONCAT(r.rule_binding_id, '_', r.rule_id, '_', TIMESTAMP_TRUNC(r.execution_ts, HOUR), '_', True) AS dq_run_id,
-    TRUE AS progress_watermark,
+    TRUE AS progress_watermark
   FROM
     validation_results r
 )

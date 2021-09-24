@@ -26,10 +26,13 @@ class DqRule:
 
     rule_id: str
     rule_type: RuleType
+    source_database: str
     params: dict | None = None
 
     def resolve_sql_expr(self: DqRule) -> str:
-        return self.rule_type.to_sql(self.params).safe_substitute()
+        return self.rule_type.to_sql(
+            self.params, self.source_database
+        ).safe_substitute()
 
     @classmethod
     def from_dict(cls: DqRule, rule_id: str, kwargs: dict) -> DqRule:
@@ -46,7 +49,13 @@ class DqRule:
 
         rule_type: RuleType = RuleType(kwargs.get("rule_type", ""))
         params: dict = kwargs.get("params", dict())
-        return DqRule(rule_id=str(rule_id), rule_type=rule_type, params=params)
+        source_database: str = kwargs.get("source_database", "BIGQUERY")
+        return DqRule(
+            rule_id=str(rule_id),
+            rule_type=rule_type,
+            source_database=source_database,
+            params=params,
+        )
 
     def to_dict(self: DqRule) -> dict:
         """

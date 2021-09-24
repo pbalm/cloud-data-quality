@@ -32,7 +32,10 @@ filegroup(
 
 filegroup(
     name = "test_configs",
-    srcs = glob(["resources/configs/**/*"]),
+    srcs = glob([
+        "resources/configs/**/*",
+        "resources/configs_bq/**/*",
+    ]),
     visibility = ["//tests:__subpackages__"],
 )
 
@@ -44,6 +47,7 @@ filegroup(
 
 DEPS = [
     "//clouddq:classes",
+    "//clouddq:integration",
     "//clouddq:clouddq_lib",
     requirement("py"),
     requirement("pytest"),

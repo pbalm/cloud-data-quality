@@ -15,7 +15,7 @@
 {{
   config(
     materialized = 'incremental',
-    incremental_strategy = 'merge',
+    incremental_strategy = 'append',
     partition_by = {
         'field': 'execution_ts',
         'data_type': 'timestamp',

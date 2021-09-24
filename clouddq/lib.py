@@ -61,7 +61,10 @@ def get_bigquery_dq_summary_table_name(
     dbt_dataset = dbt_profile["dataset"]
     if "{{" in dbt_dataset:
         dbt_dataset = extract_dbt_env_var(dbt_dataset)
-    dq_summary_table_name = f"{dbt_project}.{dbt_dataset}.dq_summary"
+    if dbt_profile["type"] == "spark":
+        dq_summary_table_name = f"{dbt_dataset}.dq_summary"
+    else:
+        dq_summary_table_name = f"{dbt_project}.{dbt_dataset}.dq_summary"
     return dq_summary_table_name
 
 

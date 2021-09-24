@@ -43,6 +43,11 @@ class TestJinjaTemplates:
         return lib.load_entities_config(configs_path=Path("tests/resources/configs"))
 
     @pytest.fixture
+    def test_bq_entities_collection(self):
+        """ """
+        return lib.load_entities_config(configs_path=Path("tests/resources/configs_bq"))
+
+    @pytest.fixture
     def test_rules_collection(self):
         """ """
         return lib.load_rules_config(configs_path=Path("tests/resources/configs"))
@@ -141,11 +146,11 @@ class TestJinjaTemplates:
             assert dict(rule_binding.dict_values()) == dict(value)
 
     def test_rule_bindings_class_resolve_configs(
-        self,
-        test_rule_bindings_collection_team_2,
-        test_entities_collection,
-        test_rules_collection,
-        test_row_filters_collection,
+            self,
+            test_rule_bindings_collection_team_2,
+            test_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
     ):
         """
 
@@ -160,8 +165,10 @@ class TestJinjaTemplates:
             rule_binding.resolve_table_entity_config(
                 entities_collection=test_entities_collection
             )
+            # Resolve table configs
+            table_entity: DqEntity = rule_binding.resolve_table_entity_config(test_entities_collection)
             rule_binding.resolve_rule_config_list(
-                rules_collection=test_rules_collection
+                rules_collection=test_rules_collection, dq_entity=table_entity
             )
             rule_binding.resolve_row_filter_config(
                 row_filters_collection=test_row_filters_collection
@@ -188,12 +195,12 @@ class TestJinjaTemplates:
         """
         self.test_rule_bindings_class(test_all_rule_bindings_collections)
 
-    def test_render_run_dq_main_sql(
-        self,
-        test_rule_bindings_collection_team_2,
-        test_entities_collection,
-        test_rules_collection,
-        test_row_filters_collection,
+    def test_render_run_dq_main_spark_sql(
+            self,
+            test_rule_bindings_collection_team_2,
+            test_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
     ):
         """
 
@@ -206,22 +213,22 @@ class TestJinjaTemplates:
         Returns:
 
         """
-        with open("tests/resources/test_render_run_dq_main_sql_expected.sql") as f:
+        with open("tests/resources/test_render_run_dq_main_sql_expected_spark.sql") as f:
             expected = f.read()
         rule_binding_id, rule_binding_configs = (
             test_rule_bindings_collection_team_2.items()
-            .__iter__()
-            .__next__()  # use first rule binding
+                .__iter__()
+                .__next__()  # use first rule binding
         )
         output = lib.create_rule_binding_view_model(
             configs_path=Path("tests/resources/configs"),
             rule_binding_id=rule_binding_id,
             rule_binding_configs=rule_binding_configs,
-            dq_summary_table_name="<your_gcp_project_id>.dq_test.dq_summary",
+            dq_summary_table_name="amandeep_dev_lake_raw.dq_summary",
             entities_collection=test_entities_collection,
             rules_collection=test_rules_collection,
             row_filters_collection=test_row_filters_collection,
-            environment="DEV",
+            environment="hive",
             debug=True,
         )
         expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
@@ -229,12 +236,12 @@ class TestJinjaTemplates:
         output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
         assert output == expected
 
-    def test_render_run_dq_main_sql_env_override(
-        self,
-        test_rule_bindings_collection_team_2,
-        test_entities_collection,
-        test_rules_collection,
-        test_row_filters_collection,
+    def test_render_run_dq_main_sql(
+            self,
+            test_rule_bindings_collection_team_2,
+            test_bq_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
     ):
         """
 
@@ -251,6 +258,47 @@ class TestJinjaTemplates:
             expected = f.read()
         rule_binding_id, rule_binding_configs = (
             test_rule_bindings_collection_team_2.items()
+                .__iter__()
+                .__next__()  # use first rule binding
+        )
+        output = lib.create_rule_binding_view_model(
+            configs_path=Path("tests/resources/configs_bq"),
+            rule_binding_id=rule_binding_id,
+            rule_binding_configs=rule_binding_configs,
+            dq_summary_table_name="<your_gcp_project_id>.dataplex_clouddq.dq_summary",
+            entities_collection=test_bq_entities_collection,
+            rules_collection=test_rules_collection,
+            row_filters_collection=test_row_filters_collection,
+            environment="bq",
+            debug=True,
+        )
+        expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
+        output = re.sub(RE_NEWLINES, '\n', output).strip()
+        output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
+        assert output == expected
+
+    def test_render_run_dq_main_spark_sql_env_override(
+            self,
+            test_rule_bindings_collection_team_2,
+            test_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
+    ):
+        """
+
+        Args:
+          test_rule_bindings_collection_team_2:
+          test_entities_collection:
+          test_rules_collection:
+          test_row_filters_collection:
+
+        Returns:
+
+        """
+        with open("tests/resources/test_render_run_dq_main_sql_expected_spark.sql") as f:
+            expected = f.read()
+        rule_binding_id, rule_binding_configs = (
+            test_rule_bindings_collection_team_2.items()
             .__iter__()
             .__next__()  # use first rule binding
         )
@@ -258,13 +306,58 @@ class TestJinjaTemplates:
             configs_path=Path("tests/resources/configs"),
             rule_binding_id=rule_binding_id,
             rule_binding_configs=rule_binding_configs,
-            dq_summary_table_name="<your_gcp_project_id>.dq_test.dq_summary",
+            dq_summary_table_name="amandeep_dev_lake_raw.dq_summary",
             entities_collection=test_entities_collection,
             rules_collection=test_rules_collection,
             row_filters_collection=test_row_filters_collection,
             environment="TEST",
             debug=True,
         )
+        expected = expected.replace(
+            "amandeep_dev_lake_raw.asset_bucket", "<lake_name_2>_<zone_name_2>.<table_name_2>"
+        )
+        expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
+        output = re.sub(RE_NEWLINES, '\n', output).strip()
+        output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
+        assert output == expected
+
+    def test_render_run_dq_main_sql_env_override(
+            self,
+            test_rule_bindings_collection_team_2,
+            test_bq_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
+    ):
+        """
+
+        Args:
+          test_rule_bindings_collection_team_2:
+          test_entities_collection:
+          test_rules_collection:
+          test_row_filters_collection:
+
+        Returns:
+
+        """
+        with open("tests/resources/test_render_run_dq_main_sql_expected.sql") as f:
+            expected = f.read()
+        rule_binding_id, rule_binding_configs = (
+            test_rule_bindings_collection_team_2.items()
+                .__iter__()
+                .__next__()  # use first rule binding
+        )
+        output = lib.create_rule_binding_view_model(
+            configs_path=Path("tests/resources/configs_bq"),
+            rule_binding_id=rule_binding_id,
+            rule_binding_configs=rule_binding_configs,
+            dq_summary_table_name="<your_gcp_project_id>.dataplex_clouddq.dq_summary",
+            entities_collection=test_bq_entities_collection,
+            rules_collection=test_rules_collection,
+            row_filters_collection=test_row_filters_collection,
+            environment="bq",
+            debug=True,
+        )
+        print("output", output)
         expected = expected.replace(
             "<your_gcp_project_id>.dq_test", "<your_gcp_project_id_2>.<your_bigquery_dataset_id>"
         )
@@ -273,12 +366,12 @@ class TestJinjaTemplates:
         output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
         assert output == expected
 
-    def test_render_run_dq_main_sql_high_watermark(
-        self,
-        test_rule_bindings_collection_team_1,
-        test_entities_collection,
-        test_rules_collection,
-        test_row_filters_collection,
+    def test_render_run_dq_main_spark_sql_high_watermark(
+            self,
+            test_rule_bindings_collection_team_1,
+            test_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
     ):
         """
 
@@ -292,7 +385,7 @@ class TestJinjaTemplates:
 
         """
         with open(
-            "tests/resources/test_render_run_dq_main_sql_expected_high_watermark.sql",
+                "tests/resources/test_render_run_dq_main_sql_expected_high_watermark_spark.sql",
         ) as f:
             expected = f.read()
         rule_binding_id, rule_binding_configs = (
@@ -304,11 +397,11 @@ class TestJinjaTemplates:
             configs_path=Path("tests/resources/configs"),
             rule_binding_id=rule_binding_id,
             rule_binding_configs=rule_binding_configs,
-            dq_summary_table_name="<your_gcp_project_id>.dq_test.dq_summary",
+            dq_summary_table_name="amandeep_dev_lake_raw.dq_summary",
             entities_collection=test_entities_collection,
             rules_collection=test_rules_collection,
             row_filters_collection=test_row_filters_collection,
-            environment="DEV",
+            environment="hive",
             debug=True,
         )
         expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
@@ -316,12 +409,55 @@ class TestJinjaTemplates:
         output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
         assert output == expected
 
-    def test_render_run_dq_main_sql_custom_sql_statement(
-        self,
-        test_rule_bindings_collection_team_3,
-        test_entities_collection,
-        test_rules_collection,
-        test_row_filters_collection,
+    def test_render_run_dq_main_sql_high_watermark(
+            self,
+            test_rule_bindings_collection_team_1,
+            test_bq_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
+    ):
+        """
+
+        Args:
+          test_rule_bindings_collection_team_1:
+          test_entities_collection:
+          test_rules_collection:
+          test_row_filters_collection:
+
+        Returns:
+
+        """
+        with open(
+                "tests/resources/test_render_run_dq_main_sql_expected_high_watermark.sql",
+        ) as f:
+            expected = f.read()
+        rule_binding_id, rule_binding_configs = (
+            test_rule_bindings_collection_team_1.items()
+                .__iter__()
+                .__next__()  # use first rule binding
+        )
+        output = lib.create_rule_binding_view_model(
+            configs_path=Path("tests/resources/configs_bq"),
+            rule_binding_id=rule_binding_id,
+            rule_binding_configs=rule_binding_configs,
+            dq_summary_table_name="<your_gcp_project_id>.dataplex_clouddq.dq_summary",
+            entities_collection=test_bq_entities_collection,
+            rules_collection=test_rules_collection,
+            row_filters_collection=test_row_filters_collection,
+            environment="bq",
+            debug=True,
+        )
+        expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
+        output = re.sub(RE_NEWLINES, '\n', output).strip()
+        output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
+        assert output == expected
+
+    def test_render_run_dq_main_spark_sql_custom_sql_statement(
+            self,
+            test_rule_bindings_collection_team_3,
+            test_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
     ):
         """
 
@@ -335,7 +471,7 @@ class TestJinjaTemplates:
 
         """
         with open(
-            "tests/resources/test_render_run_dq_main_sql_expected_custom_sql_statement.sql",
+                "tests/resources/test_render_run_dq_main_sql_expected_custom_sql_statement_spark.sql",
         ) as f:
             expected = f.read()
         rule_binding_id, rule_binding_configs = (
@@ -347,11 +483,54 @@ class TestJinjaTemplates:
             configs_path=Path("tests/resources/configs"),
             rule_binding_id=rule_binding_id,
             rule_binding_configs=rule_binding_configs,
-            dq_summary_table_name="<your_gcp_project_id>.dq_test.dq_summary",
+            dq_summary_table_name="amandeep_dev_lake_raw.dq_summary",
             entities_collection=test_entities_collection,
             rules_collection=test_rules_collection,
             row_filters_collection=test_row_filters_collection,
-            environment="DEV",
+            environment="hive",
+            debug=True,
+        )
+        expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
+        output = re.sub(RE_NEWLINES, '\n', output).strip()
+        output = re.sub(RE_CONFIGS_HASHSUM, CONFIGS_HASHSUM_REP, output)
+        assert output == expected
+
+    def test_render_run_dq_main_sql_custom_sql_statement(
+            self,
+            test_rule_bindings_collection_team_3,
+            test_bq_entities_collection,
+            test_rules_collection,
+            test_row_filters_collection,
+    ):
+        """
+
+        Args:
+          test_rule_bindings_collection_team_3:
+          test_entities_collection:
+          test_rules_collection:
+          test_row_filters_collection:
+
+        Returns:
+
+        """
+        with open(
+                "tests/resources/test_render_run_dq_main_sql_expected_custom_sql_statement.sql",
+        ) as f:
+            expected = f.read()
+        rule_binding_id, rule_binding_configs = (
+            test_rule_bindings_collection_team_3.items()
+                .__iter__()
+                .__next__()  # use first rule binding
+        )
+        output = lib.create_rule_binding_view_model(
+            configs_path=Path("tests/resources/configs_bq"),
+            rule_binding_id=rule_binding_id,
+            rule_binding_configs=rule_binding_configs,
+            dq_summary_table_name="<your_gcp_project_id>.dataplex_clouddq.dq_summary",
+            entities_collection=test_bq_entities_collection,
+            rules_collection=test_rules_collection,
+            row_filters_collection=test_row_filters_collection,
+            environment="bq",
             debug=True,
         )
         expected = utils.strip_margin(re.sub(RE_NEWLINES, '\n', expected)).strip()
@@ -360,7 +539,7 @@ class TestJinjaTemplates:
         assert output == expected
 
     def test_prepare_configs_from_rule_binding(
-        self, test_rule_bindings_collection_team_2
+            self, test_rule_bindings_collection_team_2
     ):
         """ """
         rule_binding_id, rule_binding_configs = (
@@ -368,18 +547,18 @@ class TestJinjaTemplates:
             .__iter__()
             .__next__()  # use first rule binding
         )
-        env = "DEV"
+        env = "hive"
         metadata = {"channel": "two"}
         configs = lib.prepare_configs_from_rule_binding_id(
             rule_binding_id=rule_binding_id,
             rule_binding_configs=rule_binding_configs,
-            dq_summary_table_name="<your_gcp_project_id>.dq_test.dq_summary",
+            dq_summary_table_name="amandeep_dev_lake_raw.dq_summary",
             environment=env,
             metadata=metadata,
             configs_path=Path("tests/resources/configs"),
         )
         pprint(json.dumps(configs["configs"]))
-        with open("tests/resources/expected_configs.json") as f:
+        with open("tests/resources/expected_configs_spark.json") as f:
             expected_configs = json.loads(f.read())
         assert configs["configs"] == dict(expected_configs)
         metadata.update(rule_binding_configs["metadata"])

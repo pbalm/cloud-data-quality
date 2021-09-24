@@ -21,6 +21,10 @@ DEPS = [
     requirement("pyyaml"),
     requirement("jinja2"),
     requirement("dbt-bigquery"),
+    requirement("dbt-spark"),
+    requirement("pyhive"),
+    requirement("sasl"),
+    requirement("thrift-sasl"),
 ]
 
 filegroup(
@@ -73,6 +77,15 @@ py_library(
 py_library(
     name = "classes",
     srcs = glob(["classes/*.py"]),
+    visibility = ["//tests:__subpackages__"],
+    deps = [
+        requirement("jinja2"),
+    ],
+)
+
+py_library(
+    name = "integration",
+    srcs = glob(["integration/*.py"]),
     visibility = ["//tests:__subpackages__"],
     deps = [
         requirement("jinja2"),

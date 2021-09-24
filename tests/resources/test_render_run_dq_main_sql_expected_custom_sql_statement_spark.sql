@@ -11,47 +11,55 @@
 -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
-
 WITH
-high_watermark_filter AS (
-SELECT
-IFNULL(MAX(execution_ts), TIMESTAMP("1970-01-01 00:00:00")) as high_watermark
-FROM <your_gcp_project_id>.dataplex_clouddq.dq_summary
-WHERE table_id = 'dataplex-clouddq.dataplex_clouddq.contact_details'
-AND column_id = 'value'
-AND rule_binding_id = 'T1_DQ_1_VALUE_NOT_NULL'
-AND progress_watermark IS TRUE
-),
-
 data AS (
 SELECT
 *,
 COUNT(1) OVER () as num_rows_validated
 FROM
-dataplex-clouddq.dataplex_clouddq.contact_details  d
-,high_watermark_filter
+amandeep_dev_lake_raw.asset_bucket  d
 WHERE
-CAST(d.ts AS TIMESTAMP)
-> high_watermark_filter.high_watermark
-AND
-True
+contact_type = 'email'
 ),
 validation_results AS (
-
 SELECT
 CURRENT_TIMESTAMP() AS execution_ts,
-'T1_DQ_1_VALUE_NOT_NULL' AS rule_binding_id,
+'T3_DQ_1_EMAIL_DUPLICATE' AS rule_binding_id,
+'NO_DUPLICATES_IN_COLUMN_GROUPS' AS rule_id,
+'amandeep_dev_lake_raw.asset_bucket' AS table_id,
+'value' AS column_id,
+value AS column_value,
+(select distinct num_rows_validated from data) as num_rows_validated,
+FALSE AS simple_rule_row_is_valid,
+COUNT(1) OVER() as complex_rule_validation_errors_count
+  FROM (
+    select a.*
+from data a
+inner join (
+  select
+    contact_type,value
+  from data
+  group by contact_type,value
+  having count(*) > 1
+ ) duplicates
+ using (contact_type,value)
+
+  ) custom_sql_statement_validation_errors
+UNION ALL
+SELECT
+CURRENT_TIMESTAMP() AS execution_ts,
+'T3_DQ_1_EMAIL_DUPLICATE' AS rule_binding_id,
 'NOT_NULL_SIMPLE' AS rule_id,
-'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
+'amandeep_dev_lake_raw.asset_bucket' AS table_id,
 'value' AS column_id,
 value AS column_value,
 num_rows_validated AS num_rows_validated,
 CASE
-WHEN value IS NOT NULL THEN TRUE
+WHEN TRIM(value) != '' THEN TRUE
 ELSE
 FALSE
 END AS simple_rule_row_is_valid,
-NULL AS complex_rule_validation_errors_count
+CAST(NULL AS STRING) AS complex_rule_validation_errors_count
 FROM
 data
 ),
@@ -66,14 +74,14 @@ r.simple_rule_row_is_valid AS simple_rule_row_is_valid,
 r.complex_rule_validation_errors_count AS complex_rule_validation_errors_count,
 r.column_value AS column_value,
 r.num_rows_validated AS rows_validated,
-'{}' AS metadata_json_string,
+'{"brand": "one"}' AS metadata_json_string,
 '' AS configs_hashsum,
-CONCAT(r.rule_binding_id, '_', r.rule_id, '_', TIMESTAMP_TRUNC(r.execution_ts, HOUR), '_', True) AS dq_run_id,
+CONCAT(r.rule_binding_id, '_', r.rule_id, '_', to_utc_timestamp(to_date(r.execution_ts), 'US/Pacific'), '_', True) AS dq_run_id,
 TRUE AS progress_watermark
 FROM
 validation_results r
 )
 SELECT
- *
+*
 FROM
- all_validation_results
+all_validation_results

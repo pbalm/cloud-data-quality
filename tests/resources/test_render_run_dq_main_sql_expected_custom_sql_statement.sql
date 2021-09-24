@@ -14,13 +14,13 @@
 
 WITH
 data AS (
-    SELECT
-      *,
-      COUNT(1) OVER () as num_rows_validated,
-    FROM
-      `<your_gcp_project_id>.dq_test.contact_details` d
-    WHERE
-      contact_type = 'email'
+SELECT
+*,
+COUNT(1) OVER () as num_rows_validated
+FROM
+dataplex-clouddq.dataplex_clouddq.contact_details  d
+WHERE
+contact_type = 'email'
 ),
 validation_results AS (
 
@@ -28,31 +28,30 @@ SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T3_DQ_1_EMAIL_DUPLICATE' AS rule_binding_id,
     'NO_DUPLICATES_IN_COLUMN_GROUPS' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
-    NULL AS column_value,
+    value AS column_value,
     (select distinct num_rows_validated from data) as num_rows_validated,
     FALSE AS simple_rule_row_is_valid,
-    COUNT(*) as complex_rule_validation_errors_count,
+    COUNT(1) OVER() as complex_rule_validation_errors_count
   FROM (
-    select a.*, duplicates.*
+    select a.*
     from data a
-    inner join (
+  inner join (
       select
         contact_type,value
       from data
       group by contact_type,value
       having count(*) > 1
-    ) duplicates
-    using (contact_type,value)
-) custom_sql_statement_validation_errors
-
+  ) duplicates
+  using (contact_type,value)
+  ) custom_sql_statement_validation_errors
     UNION ALL
     SELECT
     CURRENT_TIMESTAMP() AS execution_ts,
     'T3_DQ_1_EMAIL_DUPLICATE' AS rule_binding_id,
     'NOT_NULL_SIMPLE' AS rule_id,
-    '<your_gcp_project_id>.dq_test.contact_details' AS table_id,
+    'dataplex-clouddq.dataplex_clouddq.contact_details' AS table_id,
     'value' AS column_id,
     value AS column_value,
     num_rows_validated AS num_rows_validated,
@@ -63,7 +62,7 @@ SELECT
     ELSE
       FALSE
     END AS simple_rule_row_is_valid,
-    NULL AS complex_rule_validation_errors_count,
+    NULL AS complex_rule_validation_errors_count
   FROM
     data
 ),
@@ -81,7 +80,7 @@ all_validation_results AS (
     '{"brand": "one"}' AS metadata_json_string,
     '' AS configs_hashsum,
     CONCAT(r.rule_binding_id, '_', r.rule_id, '_', TIMESTAMP_TRUNC(r.execution_ts, HOUR), '_', True) AS dq_run_id,
-    TRUE AS progress_watermark,
+    TRUE AS progress_watermark
   FROM
     validation_results r
 )

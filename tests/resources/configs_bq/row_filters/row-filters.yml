@@ -12,21 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-rules:
+row_filters:
+  NONE:
+    filter_sql_expr: |-
+      True
 
-  NO_DUPLICATES_IN_COLUMN_GROUPS:
-    rule_type: CUSTOM_SQL_STATEMENT
-    params:
-      custom_sql_arguments:
-        - column_names
-      custom_sql_statement: |-
-        select a.*
-        from data a
-        inner join (
-          select
-            $column_names
-          from data
-          group by $column_names
-          having count(*) > 1
-        ) duplicates
-        using ($column_names)
+  DATA_TYPE_EMAIL:
+    filter_sql_expr: |-
+      contact_type = 'email'

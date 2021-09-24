@@ -29,6 +29,13 @@ ENTITY_CUSTOM_CONFIG_MAPPING = {
         "table_name": "{table_name}",
         "database_name": "{dataset_name}",
         "instance_name": "{project_name}",
+        "resource_type": "{resource_type}",
+    },
+    "DATAPLEX": {
+        "table_name": "{table_name}",
+        "database_name": "{lake_name}_{zone_name}",
+        "instance_name": "{project_name}",
+        "resource_type": "{resource_type}",
     },
 }
 
@@ -53,7 +60,11 @@ def get_custom_entity_configs(
     )
     entity_config_arguments = dict()
     for argument in entity_config_template_arguments:
-        argument_value = configs_map.get(argument)
+        if source_database == "DATAPLEX" and argument == "lake_name":
+            argument_value = configs_map.get(argument).replace("-", "_")
+        else:
+            argument_value = configs_map.get(argument)
+
         if argument_value:
             entity_config_arguments[argument] = argument_value
     try:
@@ -89,6 +100,7 @@ class DqEntity:
     table_name: str
     database_name: str
     instance_name: str
+    resource_type: str
     columns: dict[str, DqEntityColumn]
     environment_override: dict
 
@@ -144,6 +156,14 @@ class DqEntity:
             source_database=source_database,
             config_key="instance_name",
         )
+
+        resource_type = get_custom_entity_configs(
+            entity_id=entity_id,
+            configs_map=kwargs,
+            source_database=source_database,
+            config_key="resource_type",
+        )
+
         columns_dict = get_from_dict_and_assert(
             config_id=entity_id, kwargs=kwargs, key="columns"
         )
@@ -178,6 +198,14 @@ class DqEntity:
                 source_database=source_database,
                 config_key="database_name",
             )
+
+            resource_type_override = get_custom_entity_configs(
+                entity_id=entity_id,
+                configs_map=override_configs,
+                source_database=source_database,
+                config_key="resource_type",
+            )
+
             try:
                 table_name_override = get_custom_entity_configs(
                     entity_id=entity_id,
@@ -191,6 +219,7 @@ class DqEntity:
                 "instance_name": instance_name_override,
                 "database_name": database_name_override,
                 "table_name": table_name_override,
+                "resource_type": resource_type_override,
             }
         return DqEntity(
             entity_id=str(entity_id),
@@ -200,6 +229,7 @@ class DqEntity:
             instance_name=instance_name,
             columns=columns,
             environment_override=environment_override,
+            resource_type=resource_type,
         )
 
     def to_dict(self: DqEntity) -> dict:
@@ -221,6 +251,7 @@ class DqEntity:
             "database_name": self.database_name,
             "instance_name": self.instance_name,
             "columns": columns,
+            "resource_type": self.resource_type,
         }
         if self.environment_override:
             output["environment_override"] = self.environment_override

@@ -148,7 +148,7 @@ class DqRuleBinding:
         return table_entity
 
     def resolve_rule_config_list(
-        self: DqRuleBinding, rules_collection: dict
+        self: DqRuleBinding, rules_collection: dict, dq_entity: DqEntity
     ) -> list[DqRule]:
         """
 
@@ -183,6 +183,8 @@ class DqRuleBinding:
             )
             if arguments:
                 rule_config_dict["params"]["rule_binding_arguments"] = arguments
+
+            rule_config_dict["source_database"] = dq_entity.source_database
             rule_config = DqRule.from_dict(rule_id, rule_config_dict)
             resolved_rule_config_list.append(rule_config)
         assert_not_none_or_empty(
@@ -260,7 +262,7 @@ class DqRuleBinding:
             ).get("name")
         # Resolve rules configs
         rule_configs_dict = dict()
-        for rule in self.resolve_rule_config_list(rules_collection):
+        for rule in self.resolve_rule_config_list(rules_collection, table_entity):
             for rule_id, rule_config in rule.to_dict().items():
                 rule_sql_expr = Template(rule_config["rule_sql_expr"]).safe_substitute(
                     column=column_configs.column_name

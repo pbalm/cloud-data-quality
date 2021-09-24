@@ -41,8 +41,26 @@ class TestClasses:
         dq_entity_dict_not_valid = {
             "source_database": "BIGQUERY",
             "table_name": "valid",
-            "database_name": "valid",
+            "dataset_name": "valid",
             "instance_name": "valid",
+            "columns": dict(),
+            "resource_type": "BIGQUERY"
+        }
+        with pytest.raises(ValueError):
+            DqEntity.from_dict(entity_id="valid", kwargs=dq_entity_dict_not_valid)
+
+    def test_dq_entity_dataplex_missing_columns_failure(self):
+        """ """
+        dq_entity_dict_not_valid = {
+            "source_database": "DATAPLEX",
+            "table_name": "valid",
+            "instance_name": "valid",
+            "lake_name": "valid",
+            "zone_name": "valid",
+            "dataset_name": "valid",
+            "project_name": "valid",
+            "columns": dict(),
+            "resource_type": "STORAGE_BUCKET"
         }
         with pytest.raises(ValueError):
             DqEntity.from_dict(entity_id="valid", kwargs=dq_entity_dict_not_valid)
@@ -68,6 +86,18 @@ class TestClasses:
         "configs_map,source_database,expected",
         [
             pytest.param(
+                {"table_name": "table", "lake_name": "lake", "zone_name": "zone", "project_name": "project"},
+                "DATAPLEX",
+                "lake_zone",
+                id="dataplex_native"
+            ),
+            pytest.param(
+                {"table_name": "table", "lake_name": "lake", "zone_name": "zone", "database_name": "lake_zone", "project_name": "project"},
+                "DATAPLEX",
+                "lake_zone",
+                id="dataplex_backwards_compatible"
+            ),
+            pytest.param(
                 {"table_name": "table", "dataset_name": "dataset", "project_name": "project"}, 
                 "BIGQUERY",
                 "dataset",
@@ -82,7 +112,11 @@ class TestClasses:
         ],
     )
     def test_get_custom_entity_configs_database_name(self, configs_map, source_database, expected):
-        output = get_custom_entity_configs('test', configs_map, source_database, "database_name")
+        print(configs_map)
+        print(source_database)
+        print(expected)
+        output = get_custom_entity_configs('test_table', configs_map, source_database, "database_name")
+        print(output)
         assert output == expected
 
     def test_dq_entity_parse_bigquery_configs(self):
@@ -98,6 +132,7 @@ class TestClasses:
                     "name": "test_column",
                     "data_type": "STRING"
                 }},
+            "resource_type": "BIGQUERY",
         }
         bq_entity_configs = DqEntity.from_dict(entity_id="test_bq_entity", kwargs=bq_entity_input_dict)
         bq_entity_configs_expected = {
@@ -112,6 +147,7 @@ class TestClasses:
                         "name": "test_column",
                         "data_type": "STRING"
                     }},
+                "resource_type": "BIGQUERY",
             }
         }
         assert bq_entity_configs.to_dict() == bq_entity_configs_expected
@@ -129,6 +165,7 @@ class TestClasses:
                     "name": "test_column",
                     "data_type": "STRING"
                 }},
+            "resource_type": "BIGQUERY"
         }
         bq_entity_configs = DqEntity.from_dict(entity_id="test_bq_entity", kwargs=bq_entity_input_dict)
         bq_entity_configs_expected = {
@@ -143,9 +180,44 @@ class TestClasses:
                         "name": "test_column",
                         "data_type": "STRING"
                     }},
+                "resource_type": "BIGQUERY",
             }
         }
         assert bq_entity_configs.to_dict() == bq_entity_configs_expected
+
+    def test_dq_entity_parse_dataplex_configs(self):
+        """ """
+        dataplex_entity_input_dict = {
+            "source_database": "DATAPLEX",
+            "table_name": "table",
+            "lake_name": "lake",
+            "zone_name": "zone",
+            "project_name": "project_name",
+            "columns": {
+                "TEST_COLUMN": {
+                    "description": "test column description",
+                    "name": "test_column",
+                    "data_type": "STRING"
+                }},
+            "resource_type": "STORAGE_BUCKET",
+        }
+        dataplex_entity_configs = DqEntity.from_dict(entity_id="test_dataplex_entity", kwargs=dataplex_entity_input_dict)
+        dataplex_entity_configs_expected = {
+            "test_dataplex_entity": {
+                "source_database": "DATAPLEX",
+                "table_name": "table",
+                "database_name": "lake_zone",
+                "instance_name": "project_name",
+                "columns": {
+                    "TEST_COLUMN": {
+                        "description": "test column description",
+                        "name": "test_column",
+                        "data_type": "STRING"
+                    }},
+                "resource_type": "STORAGE_BUCKET",
+            }
+        }
+        assert dataplex_entity_configs.to_dict() == dataplex_entity_configs_expected
 
     def test_dq_filter_parse_failure(self):
         """ """
@@ -186,7 +258,7 @@ class TestClasses:
     def test_rule_type_not_implemented(self):
         """ """
         with pytest.raises(NotImplementedError):
-            RuleType.to_sql("not_implemented", dict())
+            RuleType.to_sql("not_implemented", dict(), source_database="")
 
     @pytest.mark.parametrize(
         "params",
@@ -199,24 +271,24 @@ class TestClasses:
     def test_rule_type_custom_to_sql_failure(self, params):
         """ """
         with pytest.raises(ValueError):
-            RuleType.CUSTOM_SQL_EXPR.to_sql(params)
+            RuleType.CUSTOM_SQL_EXPR.to_sql(params=params, source_database="")
 
     def test_rule_type_custom_to_sql(self):
         """ """
         params = {"custom_sql_expr": "length(column_name) < 20"}
-        sql = RuleType.CUSTOM_SQL_EXPR.to_sql(params).substitute(column="column_name")
+        sql = RuleType.CUSTOM_SQL_EXPR.to_sql(params, source_database="").substitute(column="column_name")
         assert sql == params["custom_sql_expr"]
 
     def test_rule_type_not_null(self):
         """ """
         expected = "column_name IS NOT NULL"
-        sql = RuleType.NOT_NULL.to_sql(params={}).substitute(column="column_name")
+        sql = RuleType.NOT_NULL.to_sql(params={}, source_database="").substitute(column="column_name")
         assert sql == expected
 
     def test_rule_type_not_blank(self):
         """ """
         expected = "TRIM(column_name) != ''"
-        sql = RuleType.NOT_BLANK.to_sql(params={}).substitute(column="column_name")
+        sql = RuleType.NOT_BLANK.to_sql(params={}, source_database="").substitute(column="column_name")
         assert sql == expected
 
     @pytest.mark.parametrize(
@@ -231,14 +303,23 @@ class TestClasses:
     def test_rule_type_regex_to_sql_failure(self, params):
         """ """
         with pytest.raises(ValueError):
-            RuleType.REGEX.to_sql(params)
+            RuleType.REGEX.to_sql(params, source_database="")
+
+    def test_rule_type_regex_spark_to_sql(self):
+        """ """
+        params = {"pattern": "^[^@]+[@]{1}[^@]+$"}
+        source_database = "DATAPLEX"
+        sql = RuleType.REGEX.to_sql(params, source_database).substitute(column="column_name")
+        expected = "LENGTH(REGEXP_EXTRACT(TRIM(CAST( column_name  AS STRING)), '^[^@]+[@]{1}[^@]+$', 0))>0"
+        assert sql == expected
 
     def test_rule_type_regex_to_sql(self):
         """ """
         params = {"pattern": "^[^@]+[@]{1}[^@]+$"}
-        sql = RuleType.REGEX.to_sql(params).substitute(column="column_name")
+        source_database = "BIGQUERY"
+        sql = RuleType.REGEX.to_sql(params, source_database=source_database).substitute(column="column_name")
         expected = "REGEXP_CONTAINS( CAST( column_name  AS STRING), '^[^@]+[@]{1}[^@]+$' )"
         assert sql == expected
 
 if __name__ == "__main__":
-    raise SystemExit(pytest.main([__file__, '-vv']))
+    raise SystemExit(pytest.main([__file__, '-vv', '-rP']))
