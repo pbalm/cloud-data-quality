@@ -8,7 +8,7 @@
 
 `CloudDQ` is a cloud-native, declarative, and scalable Data Quality validation Command-Line Interface (CLI) application for Google BigQuery.
 
-It takes as input Data Quality validation tests defined using a flexible and reusable YAML configurations language. For each `Rule Binding` definition in the YAML configs, `CloudDQ` creates a corresponding SQL view in your Data Warehouse. It then executes the view and collects the data quality validation outputs into a summary table for reporting and visualization.
+It takes as input Data Quality validation tests defined using a flexible and reusable YAML configuration language. For each `Rule Binding` definition in the YAML config, `CloudDQ` creates a corresponding SQL view in your Data Warehouse. It then executes the view and collects the data quality validation outputs into a summary table for reporting and visualization.
 
 `CloudDQ` currently supports in-place validation of BigQuery data.
 
@@ -16,9 +16,11 @@ It takes as input Data Quality validation tests defined using a flexible and reu
 
 ### Declarative Data Quality Configs
 
+When running`CloudDQ`, you reference a directory that contains a set of files defining entities, rules, rule bindings. The entities define the data that we will be validating, the rules are generic conditions (such as "not null") and a rule binding binds a rule to a field or column in a an entity.
+
 #### Rule Bindings
-**Rule Bindings**:
-Defines a single Data Quality validation routine.
+
+Rule Bindings define a single Data Quality validation routine.
 Each value declared in `entity_id`, `column_id`, `filter_id`, and `rule_id`
 is a lookup key for the more detailed configurations that must be defined in their respective configurations files.
 ```yaml
@@ -57,7 +59,8 @@ On each run, CloudDQ converts each `rule_binding` into a SQL script, create a co
 You can then use any dashboarding solution such as Data Studio or Looker to visualize the DQ Summary Statistics table, or use the DQ Summary Statistics table for monitoring and alerting purposes.
 
 #### Rules
-**Rules**: Defines reusable sets of validation logic for data quality.
+
+Rules define reusable sets of validation logic for data quality.
 ```yaml
 rules:
   NOT_NULL_SIMPLE:
@@ -99,7 +102,8 @@ We will add more default rule types over time. For the time being, most data qua
 When using `CUSTOM_SQL_STATEMENT`, the table `data` contains rows returned once all `row_filters` and incremental validation logic have been applied. We recommend simply selecting from `data` in `CUSTOM_SQL_STATEMENT` instead of trying to apply your own templating logic to define the target table for validation.
 
 #### Filters
-**Filters**: Defines how each `Rule Binding` can be filtered
+
+Filters define how each `Rule Binding` can be filtered
 ```yaml
 row_filters:
   NONE:
@@ -112,7 +116,8 @@ row_filters:
 ```
 
 #### Entities
-**Entities**: defines the target data tables as validation target.
+
+Entities define the target data tables as validation target.
 ```yaml
 entities:
   TEST_TABLE:
@@ -149,27 +154,6 @@ entities:
           updated timestamp
 ```
 
-An example entity configurations is provided at `configs/entities/test-data.yml`. The data for the BigQuery table `contact_details` referred in this config can can be found in `tests/data/contact_details.csv`.
-
-You can load this data into BigQuery using the `bq load` command (the [`bq` CLI ](https://cloud.google.com/bigquery/docs/bq-command-line-tool) is installed as part of the [`gcloud` SDK](https://cloud.google.com/sdk/docs/install)):
-
-```bash
-#!/bin/bash
-# Create a BigQuery Dataset in a region of your choice and load data
-export GOOGLE_CLOUD_PROJECT=$(gcloud config get-value project)
-export CLOUDDQ_BIGQUERY_REGION=EU
-export CLOUDDQ_BIGQUERY_DATASET=clouddq
-# Fetch the example csv file
-curl -LO https://raw.githubusercontent.com/GoogleCloudPlatform/cloud-data-quality/main/tests/data/contact_details.csv
-# Create BigQuery Dataset. Skip this step if `CLOUDDQ_BIGQUERY_DATASET` already exists
-bq --location=${CLOUDDQ_BIGQUERY_REGION} mk --dataset ${GOOGLE_CLOUD_PROJECT}:${CLOUDDQ_BIGQUERY_DATASET}
-# Load sample data to the dataset
-bq load --source_format=CSV --autodetect ${CLOUDDQ_BIGQUERY_DATASET}.contact_details contact_details.csv
-```
-
-Ensure you have sufficient IAM privileges to create BigQuery datasets and tables in your project.
-
-If you are testing CloudDQ with the provided configs, ensure you update the `<your_project_id>` field with the [GCP project ID](https://cloud.google.com/resource-manager/docs/creating-managing-projects#before_you_begin) and the `<your_dataset_id>` field with the BigQuery dataset containing the `contact_details` table.
 
 ## Usage Guide
 
@@ -206,7 +190,7 @@ python3 clouddq_executable.zip --help
 
 This should show you the help text.
 
-#### Example CLI commands
+#### Usage Examples
 
 In the below examples, we will use the example YAML `configs` provided in this project.
 
