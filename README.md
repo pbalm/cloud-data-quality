@@ -18,45 +18,45 @@ It takes as input Data Quality validation tests defined using a flexible and reu
 
 When running`CloudDQ`, you reference a directory that contains a set of files defining entities, rules, rule bindings. The entities define the data that we will be validating, the rules are generic conditions (such as "not null") and a rule binding binds a rule to a field or column in a an entity.
 
-#### Rule Bindings
+#### Entities
 
-Rule Bindings define a single Data Quality validation routine.
-Each value declared in `entity_id`, `column_id`, `filter_id`, and `rule_id`
-is a lookup key for the more detailed configurations that must be defined in their respective configurations files.
+Entities define the target data tables as validation target.
 ```yaml
-rule_bindings:
-  T2_DQ_1_EMAIL:
-    entity_id: TEST_TABLE
-    column_id: VALUE
-    row_filter_id: DATA_TYPE_EMAIL
-    incremental_time_filter_column_id: TS
-    rule_ids:
-      - NOT_NULL_SIMPLE
-      - REGEX_VALID_EMAIL
-      - CUSTOM_SQL_LENGTH_LE_30
-    metadata:
-      team: team-2
-
-  T3_DQ_1_EMAIL_DUPLICATE:
-    entity_id: TEST_TABLE
-    column_id: VALUE
-    row_filter_id: DATA_TYPE_EMAIL
-    rule_ids:
-      - NO_DUPLICATES_IN_COLUMN_GROUPS:
-          column_names: "value"
-      - NOT_NULL_SIMPLE
-    metadata:
-      team: team-3
+entities:
+  TEST_TABLE:
+    source_database: BIGQUERY
+    table_name: contact_details
+    dataset_name: <your_dataset_id>
+    project_name: <your_project_id>
+    environment_override:
+      TEST:
+        environment: test
+        override:
+          dataset_name: <your_project_id>
+          project_name: <your_project_id>
+    columns:
+      ROW_ID:
+        name: row_id
+        data_type: STRING
+        description: |-
+          unique identifying id
+      CONTACT_TYPE:
+        name: contact_type
+        data_type: STRING
+        description: |-
+          contact detail type
+      VALUE:
+        name: value
+        data_type: STRING
+        description: |-
+          contact detail
+      TS:
+        name: ts
+        data_type: DATETIME
+        description: |-
+          updated timestamp
 ```
-Each `rule_binding` must define the fields `entity_id`, `column_id`, `row_filter_id`, and `rule_ids`. `entity_id` refers to the table being validated, `column_id` refers to the column in the table to be validated, `row_filter_id` refers to a filter condition to select rows in-scope for validation, and `rule_ids` refers to the list of data quality validation rules to apply on the selected column and rows.
 
-If `incremental_time_filter_column_id` is defined, `CloudDQ` will only validate rows with a timestamp higher than the last run timestamp on each run, otherwise it will validate all rows matching the `row_filter_id` on each run.
-
-Under the `metadata` config, you may add any key-value pairs that will be added as a JSON on each DQ summary row output. For example, this can be the team responsible for a `rule_binding`, the table type (raw, curated, reference). The JSON allows custom aggregations and drilldowns over the summary data.
-
-On each run, CloudDQ converts each `rule_binding` into a SQL script, create a corresponding [view](https://cloud.google.com/bigquery/docs/views) in BigQuery, and aggregate the validation results summary per `rule_binding` and `rule` for each CloudDQ run into a DQ Summary Statistics table in BigQuery. This table is called called `dq_summary`, and is automatically created by CloudDQ in the BigQuery dataset defined in the argument `--gcp_bq_dataset_id`.
-
-You can then use any dashboarding solution such as Data Studio or Looker to visualize the DQ Summary Statistics table, or use the DQ Summary Statistics table for monitoring and alerting purposes.
 
 #### Rules
 
@@ -101,6 +101,48 @@ We will add more default rule types over time. For the time being, most data qua
 
 When using `CUSTOM_SQL_STATEMENT`, the table `data` contains rows returned once all `row_filters` and incremental validation logic have been applied. We recommend simply selecting from `data` in `CUSTOM_SQL_STATEMENT` instead of trying to apply your own templating logic to define the target table for validation.
 
+
+#### Rule Bindings
+
+Rule Bindings define a single Data Quality validation routine.
+Each value declared in `entity_id`, `column_id`, `filter_id`, and `rule_id`
+is a lookup key for the more detailed configurations that must be defined in their respective configurations files.
+```yaml
+rule_bindings:
+  T2_DQ_1_EMAIL:
+    entity_id: TEST_TABLE
+    column_id: VALUE
+    row_filter_id: DATA_TYPE_EMAIL
+    incremental_time_filter_column_id: TS
+    rule_ids:
+      - NOT_NULL_SIMPLE
+      - REGEX_VALID_EMAIL
+      - CUSTOM_SQL_LENGTH_LE_30
+    metadata:
+      team: team-2
+
+  T3_DQ_1_EMAIL_DUPLICATE:
+    entity_id: TEST_TABLE
+    column_id: VALUE
+    row_filter_id: DATA_TYPE_EMAIL
+    rule_ids:
+      - NO_DUPLICATES_IN_COLUMN_GROUPS:
+          column_names: "value"
+      - NOT_NULL_SIMPLE
+    metadata:
+      team: team-3
+```
+Each `rule_binding` must define the fields `entity_id`, `column_id`, `row_filter_id`, and `rule_ids`. `entity_id` refers to the table being validated, `column_id` refers to the column in the table to be validated, `row_filter_id` refers to a filter condition to select rows in-scope for validation, and `rule_ids` refers to the list of data quality validation rules to apply on the selected column and rows.
+
+If `incremental_time_filter_column_id` is defined, `CloudDQ` will only validate rows with a timestamp higher than the last run timestamp on each run, otherwise it will validate all rows matching the `row_filter_id` on each run.
+
+Under the `metadata` config, you may add any key-value pairs that will be added as a JSON on each DQ summary row output. For example, this can be the team responsible for a `rule_binding`, the table type (raw, curated, reference). The JSON allows custom aggregations and drilldowns over the summary data.
+
+On each run, CloudDQ converts each `rule_binding` into a SQL script, create a corresponding [view](https://cloud.google.com/bigquery/docs/views) in BigQuery, and aggregate the validation results summary per `rule_binding` and `rule` for each CloudDQ run into a DQ Summary Statistics table in BigQuery. This table is called called `dq_summary`, and is automatically created by CloudDQ in the BigQuery dataset defined in the argument `--gcp_bq_dataset_id`.
+
+You can then use any dashboarding solution such as Data Studio or Looker to visualize the DQ Summary Statistics table, or use the DQ Summary Statistics table for monitoring and alerting purposes.
+
+
 #### Filters
 
 Filters define how each `Rule Binding` can be filtered
@@ -115,44 +157,6 @@ row_filters:
       contact_type = 'email'
 ```
 
-#### Entities
-
-Entities define the target data tables as validation target.
-```yaml
-entities:
-  TEST_TABLE:
-    source_database: BIGQUERY
-    table_name: contact_details
-    dataset_name: <your_dataset_id>
-    project_name: <your_project_id>
-    environment_override:
-      TEST:
-        environment: test
-        override:
-          dataset_name: <your_project_id>
-          project_name: <your_project_id>
-    columns:
-      ROW_ID:
-        name: row_id
-        data_type: STRING
-        description: |-
-          unique identifying id
-      CONTACT_TYPE:
-        name: contact_type
-        data_type: STRING
-        description: |-
-          contact detail type
-      VALUE:
-        name: value
-        data_type: STRING
-        description: |-
-          contact detail
-      TS:
-        name: ts
-        data_type: DATETIME
-        description: |-
-          updated timestamp
-```
 
 
 ## Usage Guide
@@ -161,7 +165,7 @@ entities:
 
 CloudDQ is a Command-Line Interface (CLI) application. It takes as input YAML Data Quality configurations, generates and executes SQL code in BigQuery using provided connection configurations, and writes the resulting Data Quality summary statistics to a BigQuery table of your choice.
 
-#### System Requirements
+### System Requirements
 
 CloudDQ is currently only tested to run on `Ubuntu`/`Debian` linux distributions. It may not work properly on other OS such as `MacOS`, `Windows`/`cygwin`, or `CentOS`/`Fedora`/`FreeBSD`, etc...
 
@@ -169,7 +173,7 @@ For development or trying out CloudDQ, we recommend using either [Cloud Shell](h
 
 CloudDQ requires a Python 3.8 interpreter. If you are using the pre-built artifact, the Python interpreter is bundled into the zip so it can be executed using any Python version.
 
-#### Using Pre-Built Executable
+### Using Pre-Built Executable
 
 The simplest way to run CloudDQ is to use one of the pre-built executable provided in the Github releases page: https://github.com/GoogleCloudPlatform/cloud-data-quality/releases
 
@@ -190,7 +194,7 @@ python3 clouddq_executable.zip --help
 
 This should show you the help text.
 
-#### Usage Examples
+### Usage Examples
 
 In the below examples, we will use the example YAML `configs` provided in this project.
 
@@ -227,7 +231,7 @@ export GOOGLE_CLOUD_PROJECT="<your_GCP_project_id>"
 gcloud config set project ${GOOGLE_CLOUD_PROJECT}
 ```
 
-Now we'll create a new dataset with a custom name in a location of our choice and load some sample data into it:
+Now we'll create a new dataset with a custom name in a location of our choice and load some sample data into it. The data for the BigQuery table `contact_details` referred in this config can can be found in `tests/data/contact_details.csv`. Ensure you have sufficient IAM privileges to create BigQuery datasets and tables in your project, using the following commands:
 
 ```bash
 #!/bin/bash
